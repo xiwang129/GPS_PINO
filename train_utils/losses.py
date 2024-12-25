@@ -136,45 +136,6 @@ def darcy_loss(u, a):
     return loss_f
 
 
-def FDM_NS_vorticity(w, v=1/40, t_interval=1.0):
-    batchsize = w.size(0)
-    nx = w.size(1)
-    ny = w.size(2)
-    nt = w.size(3)
-    device = w.device
-    w = w.reshape(batchsize, nx, ny, nt)
-
-    w_h = torch.fft.fft2(w, dim=[1, 2])
-    # Wavenumbers in y-direction
-    k_max = nx//2
-    N = nx
-    k_x = torch.cat((torch.arange(start=0, end=k_max, step=1, device=device),
-                     torch.arange(start=-k_max, end=0, step=1, device=device)), 0).reshape(N, 1).repeat(1, N).reshape(1,N,N,1)
-    k_y = torch.cat((torch.arange(start=0, end=k_max, step=1, device=device),
-                     torch.arange(start=-k_max, end=0, step=1, device=device)), 0).reshape(1, N).repeat(N, 1).reshape(1,N,N,1)
-    # Negative Laplacian in Fourier space
-    lap = (k_x ** 2 + k_y ** 2)
-    lap[0, 0, 0, 0] = 1.0
-    f_h = w_h / lap
-
-    ux_h = 1j * k_y * f_h
-    uy_h = -1j * k_x * f_h
-    wx_h = 1j * k_x * w_h
-    wy_h = 1j * k_y * w_h
-    wlap_h = -lap * w_h
-
-    ux = torch.fft.irfft2(ux_h[:, :, :k_max + 1], dim=[1, 2])
-    uy = torch.fft.irfft2(uy_h[:, :, :k_max + 1], dim=[1, 2])
-    wx = torch.fft.irfft2(wx_h[:, :, :k_max+1], dim=[1,2])
-    wy = torch.fft.irfft2(wy_h[:, :, :k_max+1], dim=[1,2])
-    wlap = torch.fft.irfft2(wlap_h[:, :, :k_max+1], dim=[1,2])
-
-    dt = t_interval / (nt-1)
-    wt = (w[:, :, :, 2:] - w[:, :, :, :-2]) / (2 * dt)
-
-    Du1 = wt + (ux*wx + uy*wy - v*wlap)[...,1:-1] #- forcing
-    return Du1
-
 
 def Autograd_Burgers(u, grid, v=1/100):
     from torch.autograd import grad
@@ -185,39 +146,6 @@ def Autograd_Burgers(u, grid, v=1/100):
     uxx = grad(ux.sum(), gridx, create_graph=True)[0]
     Du = ut + ux*u - v*uxx
     return Du, ux, uxx, ut
-
-
-def AD_loss(u, u0, grid, index_ic=None, p=None, q=None):
-    batchsize = u.size(0)
-    # lploss = LpLoss(size_average=True)
-
-    Du, ux, uxx, ut = Autograd_Burgers(u, grid)
-
-    if index_ic is None:
-        # u in on a uniform grid
-        nt = u.size(1)
-        nx = u.size(2)
-        u = u.reshape(batchsize, nt, nx)
-
-        index_t = torch.zeros(nx,).long()
-        index_x = torch.tensor(range(nx)).long()
-        boundary_u = u[:, index_t, index_x]
-
-        # loss_bc0 = F.mse_loss(u[:, :, 0], u[:, :, -1])
-        # loss_bc1 = F.mse_loss(ux[:, :, 0], ux[:, :, -1])
-    else:
-        # u is randomly sampled, 0:p are BC, p:2p are ic, 2p:2p+q are interior
-        boundary_u = u[:, :p]
-        batch_index = torch.tensor(range(batchsize)).reshape(batchsize, 1).repeat(1, p)
-        u0 = u0[batch_index, index_ic]
-
-        # loss_bc0 = F.mse_loss(u[:, p:p+p//2], u[:, p+p//2:2*p])
-        # loss_bc1 = F.mse_loss(ux[:, p:p+p//2], ux[:, p+p//2:2*p])
-
-    loss_ic = F.mse_loss(boundary_u, u0)
-    f = torch.zeros(Du.shape, device=u.device)
-    loss_f = F.mse_loss(Du, f)
-    return loss_ic, loss_f
 
 
 class LpLoss(object):
@@ -326,7 +254,8 @@ def GPS_FDM_Burgers(u, v, D=1):
     
     Du = u_t + (u_x*u - v*u_xx)[:,1:-1,:] 
     Dx_Du = u_xt + ((u_x)**2 + u*u_xx - v*u_xxx)[:,1:-1,:]          ### TODO: fix the boundaries (i.e. the shapes)
-    Dt_Du = u_tt + ((u_x * u_t) + u*u_xt - v*u_xxt)[:,1:-1,:]       ### TODO: fix the boundaries (i.e. the shapes) 
+    # Dt_Du = u_tt + ((u_x * u_t) + u*u_xt - v*u_xxt)[:,1:-1,:]       ### TODO: fix the boundaries (i.e. the shapes)
+    Dt_Du = u_tt + ((u_x[:, 2:, :] * u_t) + u[:, 2:, :]*u_xt - v*u_xxt)[:,1:-1,:]    
     return Du, Dx_Du, Dt_Du
 
 
@@ -366,7 +295,8 @@ def GPS_PINO_loss(u, u0, v):
     boundary_u = u[:, index_t, index_x]
     loss_u = F.mse_loss(boundary_u, u0)
 
-    Du, Dx_Du, Dt_Du = GPS_FDM_Burgers(u, v)[:, :, :]
+    # Du, Dx_Du, Dt_Du = GPS_FDM_Burgers(u, v)[:, :, :]
+    Du, Dx_Du, Dt_Du = GPS_FDM_Burgers(u, v)
     f = torch.zeros(Du.shape, device=u.device)
     loss_f = F.mse_loss(Du, f)
     
@@ -393,52 +323,4 @@ def GPS_PINO_loss(u, u0, v):
     # loss_bc1 = F.mse_loss((u[:, :, 1] - u[:, :, -1]) /
     #                       (2/(nx)), (u[:, :, 0] - u[:, :, -2])/(2/(nx)))
     return loss_u, loss_f, loss_gps
-
-
-
-def PINO_loss3d(u, u0, forcing, v=1/40, t_interval=1.0):
-    batchsize = u.size(0)
-    nx = u.size(1)
-    ny = u.size(2)
-    nt = u.size(3)
-
-    u = u.reshape(batchsize, nx, ny, nt)
-    lploss = LpLoss(size_average=True)
-
-    u_in = u[:, :, :, 0]
-    loss_ic = lploss(u_in, u0)
-
-    Du = FDM_NS_vorticity(u, v, t_interval)
-    f = forcing.repeat(batchsize, 1, 1, nt-2)
-    loss_f = lploss(Du, f)
-
-    return loss_ic, loss_f
-
-
-def PDELoss(model, x, t, nu):
-    '''
-    Compute the residual of PDE:
-        residual = u_t + u * u_x - nu * u_{xx} : (N,1)
-
-    Params:
-        - model
-        - x, t: (x, t) pairs, (N, 2) tensor
-        - nu: constant of PDE
-    Return:
-        - mean of residual : scalar
-    '''
-    u = model(torch.cat([x, t], dim=1))
-    # First backward to compute u_x (shape: N x 1), u_t (shape: N x 1)
-    grad_x, grad_t = torch.autograd.grad(outputs=[u.sum()], inputs=[x, t], create_graph=True)
-    # Second backward to compute u_{xx} (shape N x 1)
-
-    gradgrad_x, = torch.autograd.grad(outputs=[grad_x.sum()], inputs=[x], create_graph=True)
-
-    residual = grad_t + u * grad_x - nu * gradgrad_x
-    return residual
-
-
-def get_forcing(S):
-    x1 = torch.tensor(np.linspace(0, 2*np.pi, S, endpoint=False), dtype=torch.float).reshape(S, 1).repeat(1, S)
-    x2 = torch.tensor(np.linspace(0, 2*np.pi, S, endpoint=False), dtype=torch.float).reshape(1, S).repeat(S, 1)
-    return -4 * (torch.cos(4*(x2))).reshape(1,S,S,1)
+  

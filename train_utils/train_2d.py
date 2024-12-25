@@ -49,6 +49,7 @@ def train_2d_operator(model,
 
     data_weight = config['train']['xy_loss']
     f_weight = config['train']['f_loss']
+    gps_weight = config['train']['gps_loss']
     model.train()
     myloss = LpLoss(size_average=True)
     pbar = range(config['train']['epochs'])
@@ -56,36 +57,38 @@ def train_2d_operator(model,
         pbar = tqdm(pbar, dynamic_ncols=True, smoothing=0.1)
     mesh = train_loader.dataset.mesh
     mollifier = torch.sin(np.pi * mesh[..., 0]) * torch.sin(np.pi * mesh[..., 1]) * 0.001
-    mollifier = mollifier.to(rank)
+    # mollifier = mollifier.to(rank)
+    mollifier = mollifier
     pde_mesh = train_loader.dataset.pde_mesh
     pde_mol = torch.sin(np.pi * pde_mesh[..., 0]) * torch.sin(np.pi * pde_mesh[..., 1]) * 0.001
-    pde_mol = pde_mol.to(rank)
+    # pde_mol = pde_mol.to(rank)
+    pde_mol = pde_mol
     for e in pbar:
         loss_dict = {'train_loss': 0.0,
                      'data_loss': 0.0,
                      'f_loss': 0.0,
                      'test_error': 0.0}
         for data_ic, u, pde_ic in train_loader:
-            data_ic, u, pde_ic = data_ic.to(rank), u.to(rank), pde_ic.to(rank)
-
+            # data_ic, u, pde_ic = data_ic.to(rank), u.to(rank), pde_ic.to(rank)
+           
             optimizer.zero_grad()
 
             # data loss
             if data_weight > 0:
                 pred = model(data_ic).squeeze(dim=-1)
                 pred = pred * mollifier
-                data_loss = myloss(pred, y)
+                data_loss = myloss(pred, u)
 
-            a = x[..., 0]
+            a = data_ic[..., 0]
             f_loss = darcy_loss(pred, a)
 
             loss = data_weight * data_loss + f_weight * f_loss
             loss.backward()
             optimizer.step()
 
-            loss_dict['train_loss'] += loss.item() * y.shape[0]
-            loss_dict['f_loss'] += f_loss.item() * y.shape[0]
-            loss_dict['data_loss'] += data_loss.item() * y.shape[0]
+            loss_dict['train_loss'] += loss.item() * u.shape[0]
+            loss_dict['f_loss'] += f_loss.item() * u.shape[0]
+            loss_dict['data_loss'] += data_loss.item() * u.shape[0]
 
         scheduler.step()
         train_loss_val = loss_dict['train_loss'] / len(train_loader.dataset)
@@ -117,25 +120,23 @@ def train_2d_operator(model,
 
 
 def train_2d_burger(model,
-                    train_loader, v,
+                    train_loader,
                     optimizer, scheduler,
                     config,
-                    rank=0, log=False,
-                    project='PINO-2d-default',
-                    group='default',
-                    tags=['default'],
+                    log=False, 
                     use_tqdm=True):
-    if rank == 0 and wandb and log:
-        run = wandb.init(project=project,
-                         entity=config['log']['entity'],
-                         group=group,
-                         config=config,
-                         tags=tags, reinit=True,
-                         settings=wandb.Settings(start_method="fork"))
+    # if rank == 0 and wandb and log:
+    #     run = wandb.init(project=project,
+    #                      entity=config['log']['entity'],
+    #                      group=group,
+    #                      config=config,
+    #                      tags=tags, reinit=True,
+    #                      settings=wandb.Settings(start_method="fork"))
 
     data_weight = config['train']['xy_loss']
     f_weight = config['train']['f_loss']
     ic_weight = config['train']['ic_loss']
+    gps_weight = config['train']['gps_loss']
     model.train()
     myloss = LpLoss(size_average=True)
     pbar = range(config['train']['epochs'])
@@ -155,8 +156,8 @@ def train_2d_burger(model,
             data_loss = myloss(out, y)
 
             # loss_u, loss_f = PINO_loss(out, x[:, 0, :, 0], v)
+            v = 0.01
             loss_u, loss_f, loss_gps = GPS_PINO_loss(out, x[:, 0, :, 0], v) ### TODO: fix logging
-            gps_weight = 1.0
             total_loss = loss_u * ic_weight + loss_f * f_weight + data_loss * data_weight + loss_gps * gps_weight ### TODO: add weighting
 
             optimizer.zero_grad()
