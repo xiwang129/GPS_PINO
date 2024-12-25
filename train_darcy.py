@@ -18,7 +18,6 @@ from train_utils.utils import save_ckpt, count_params, dict2str
 from train_utils.eval_2d import plot_eval,eval_darcy
 
 
-
 def get_molifier(mesh, device):
     mollifier = 0.001 * torch.sin(np.pi * mesh[..., 0]) * torch.sin(np.pi * mesh[..., 1])
     return mollifier.to(device)
@@ -55,6 +54,7 @@ def train(model,
 
     f_weight = config['train']['f_loss']
     xy_weight = config['train']['xy_loss']
+    gps_weight = config['train']['gps_loss']
 
     # set up directory
     base_dir = os.path.join('exp', config['log']['logdir'])
@@ -94,14 +94,13 @@ def train(model,
             out = model(ic).squeeze(dim=-1)
             out = out * ic_mol
             u0 = ic[..., 0]
-            # f_loss = darcy_loss(out, u0)
+            f_loss = darcy_loss(out, u0)
             f_loss, gps_loss = gps_darcy_loss(out, u0)
             log_dict['PDE'] = f_loss.item()
             log_dict['GPS'] = gps_loss.item()  ##### TODO: add to log dict
         else:
             f_loss = 0.0
 
-        gps_weight = 1.0
         loss = data_loss * xy_weight + f_loss * f_weight + gps_loss * gps_weight #### TODO: add gps_weight to be something
 
         loss.backward()
@@ -131,12 +130,12 @@ def subprocess(args):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # set random seed
-    config['seed'] = args.seed
-    seed = args.seed
-    torch.manual_seed(seed)
-    random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    # config['seed'] = args.seed
+    # seed = args.seed
+    # torch.manual_seed(seed)
+    # random.seed(seed)
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed_all(seed)
 
     # create model 
     model = FNO2d(modes1=config['model']['modes1'],
@@ -158,14 +157,31 @@ def subprocess(args):
     
     if args.test:
         batchsize = config['test']['batchsize']
-        testset = DarcyFlow(datapath=config['test']['datapath'], 
+        # testset = DarcyFlow(datapath=config['test']['datapath'], 
+        #                     nx=config['test']['nx'], 
+        #                     sub=config['test']['sub'], 
+        #                     offset=config['test']['offset'], 
+        #                     num=config['test']['n_sample'])
+        testset = DarcyCombo(datapath=config['test']['datapath'], 
                             nx=config['test']['nx'], 
                             sub=config['test']['sub'], 
                             offset=config['test']['offset'], 
-                            num=config['test']['n_sample'])
+                            num=config['test']['n_sample'],
+                            pde_sub=2)
         testloader = DataLoader(testset, batch_size=batchsize, num_workers=4)
         criterion = LpLoss()
-        # plot_eval(model,testset)
+
+        pino_model = FNO2d(modes1=config['model']['modes1'],
+                  modes2=config['model']['modes2'],
+                  fc_dim=config['model']['fc_dim'],
+                  layers=config['model']['layers'], 
+                  act=config['model']['act'], 
+                  pad_ratio=config['model']['pad_ratio']).to(device)
+        pino_path = 'darcy-1000-pino_new.pt'
+        pino = torch.load(pino_path,map_location=torch.device('cpu'))
+        pino_model.load_state_dict(pino['model'])
+       
+        plot_eval(model,pino_model,testset)
         # test_err, std_err = eval_darcy(model, testloader, criterion, device)
         # print(f'Averaged test relative L2 error: {test_err}; Standard error: {std_err}')
 
@@ -213,7 +229,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', type=str, default='./configs/darcy_flow.yaml')
     parser.add_argument('--log', action='store_true', help='Turn on the wandb')
     parser.add_argument('--seed', type=int, default=None)
-    parser.add_argument('--ckpt', type=str, default='model-15000-pino.pt')
+    parser.add_argument('--ckpt', type=str, default='darcy-1000-gps_001new.pt')
     parser.add_argument('--test', action='store_true', help='Test',default=True)
     args = parser.parse_args()
     if args.seed is None:
@@ -230,3 +246,23 @@ if __name__ == '__main__':
 # ==Averaged relative L2  error mean: 0.19530367267876864, std error: 0.004689765254887614==
 
 #Averaged test relative L2 error: 0.999987062573433; Standard error: 5.112165656527389e-08
+
+#pino-1000
+# Equation error: 0.89285, test l2 error: 0.0314990691840
+# ==Averaged relative L2 error mean: 0.013370322527363896, std error: 0.00030735290672945985==
+# ==Averaged equation error mean: 0.5832822696864605, std error: 0.007889941878350803==
+
+#pino-100
+#Equation error: 2.04474, test l2 error: 0.15833085775
+# ==Averaged relative L2 error mean: 0.0666941185593605, std error: 0.0014719520411472333==
+# ==Averaged equation error mean: 1.5508374849557875, std error: 0.017028828746709267==
+# Done!
+
+#pino-500
+#Equation error: 1.04377, test l2 error: 
+# ==Averaged relative L2 error mean: 0.01790224549919367, std error: 0.00045142157316416004==
+# ==Averaged equation error mean: 0.7230256846547127, std error: 0.009276560356489797==
+
+#gps-0.01-1000
+# ==Averaged relative L2 error mean: 0.011363054542802275, std error: 0.00021840036498525203==
+# ==Averaged equation error mean: 0.4907461925148964, std error: 0.00685823755522582==

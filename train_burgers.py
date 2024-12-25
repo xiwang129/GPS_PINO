@@ -35,17 +35,13 @@ def run(args, config):
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                                                      milestones=config['train']['milestones'],
                                                      gamma=config['train']['scheduler_gamma'])
+    
     train_2d_burger(model,
                     train_loader,
-                    # dataset.v,
-                    dataset,
-                    optimizer,
-                    scheduler,
+                    optimizer, scheduler,
                     config,
-                    rank=0,
-                    log=args.log,
-                    project=config['log']['project'],
-                    group=config['log']['group'])
+                    log=False,
+                    use_tqdm=True)
 
 
 def test(config):

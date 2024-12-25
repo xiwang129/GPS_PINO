@@ -4,7 +4,7 @@ import math
 import torch
 from torch.utils.data import DataLoader
 
-from solver.random_fields import GaussianRF
+# from solver.random_fields import GaussianRF
 from train_utils import Adam
 from train_utils.datasets import NSLoader, online_loader, DarcyFlow, DarcyCombo
 from train_utils.train_3d import mixed_train
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     # parse options
     parser = ArgumentParser(description='Basic paser')
-    parser.add_argument('--config_path', type=str, help='Path to the configuration file')
+    parser.add_argument('--config_path', type=str, help='Path to the configuration file',default='./configs/darcy_pretrain.yaml')
     parser.add_argument('--log', action='store_true', help='Turn on the wandb')
     args = parser.parse_args()
 
