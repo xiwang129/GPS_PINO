@@ -98,36 +98,43 @@ class BurgersLoader1D(object):
 
 class BurgersLoader(object):
     def __init__(self, datapath, nx=2**10, nt=100, sub=8, sub_t=1, new=False):
-        dataloader = MatReader(datapath)
+        # dataloader = MatReader(datapath)
         # data = torch.load(datapath)
+        dataloader = scipy.io.loadmat(datapath)
         self.sub = sub
         self.sub_t = sub_t
-        self.s = nx // sub //8
+        self.s = nx // sub 
         self.T = nt // sub_t
         self.new = new
-        if new:
-            self.T += 1
+        # if new:
+        #     self.T += 1
         # self.x_data = dataloader.read_field('input')[:, ::sub]
         # self.y_data = dataloader.read_field('output')[:, ::sub_t, ::sub]
         # self.v = dataloader.read_field('visc').item()
-        self.x_data = dataloader.read_field('a')[:,::sub]
-        self.y_data = dataloader.read_field('u')[:,::sub]
-
+        # self.x_data = dataloader.read_field('a')[:,::sub]
+        # self.y_data = dataloader.read_field('u')[:,::sub]
+        
+        self.x_data = dataloader['x_data'][:,::sub]
+        self.x_data = torch.tensor(self.x_data)
+        self.y_data  = dataloader['y_data'][:,::sub_t,::sub] 
+        self.y_data = torch.tensor(self.y_data)
+      
     def make_loader(self, n_sample, batch_size, start=0, train=True):
         Xs = self.x_data[start:start + n_sample]
         ys = self.y_data[start:start + n_sample]
 
         if self.new:
-            gridx = torch.tensor(np.linspace(0, 1, self.s + 1)[:-1], dtype=torch.float)
-            gridt = torch.tensor(np.linspace(0, 1, self.T), dtype=torch.float)
+            gridx = torch.tensor(np.linspace(0, 2*np.pi, self.s + 1)[:-1], dtype=torch.float)
+            gridt = torch.tensor(np.linspace(0, 2.475, self.T), dtype=torch.float)
         else:
-            gridx = torch.tensor(np.linspace(0, 1, self.s), dtype=torch.float)
-            gridt = torch.tensor(np.linspace(0, 1, self.T + 1)[1:], dtype=torch.float)
+            gridx = torch.tensor(np.linspace(0, 2*np.pi, self.s), dtype=torch.float)
+            gridt = torch.tensor(np.linspace(0, 2.475, self.T + 1)[1:], dtype=torch.float)
+            # gridt = torch.tensor(np.linspace(0, 1, self.T)[1:], dtype=torch.float)
         gridx = gridx.reshape(1, 1, self.s)
         gridt = gridt.reshape(1, self.T, 1)
 
-        Xs = Xs.reshape(n_sample, 1, self.s)
-        Xs = Xs.repeat([1, self.T, 1])
+        # Xs = Xs.reshape(n_sample, 1, self.s).repeat([1, self.T, 1])
+        Xs = Xs.unsqueeze(1).repeat([1, self.T, 1])
         Xs = torch.stack([Xs, gridx.repeat([n_sample, self.T, 1]), gridt.repeat([n_sample, 1, self.s])], dim=3)
         dataset = torch.utils.data.TensorDataset(Xs, ys)
         if train:
