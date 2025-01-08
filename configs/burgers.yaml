@@ -1,41 +1,39 @@
 data:
   name: Burgers
-  datapath: './data/burgers_data_R10.mat'
-  total_num: 1000
+  datapath: './burgers_data_samples.mat'
+  total_num: 270
   offset: 0
-  n_sample: 1000
-  nx: 8192
+  n_sample: 25
+  nx: 128
   nt: 100
-  sub: 8
+  sub: 1
   sub_t: 1
-
+ 
 model:
-  layers: [64,64,64,64,64]
-  # layers: [16, 24, 24, 32, 32]
-  # modes1: [15, 12, 9, 9]
-  # modes2: [15, 12, 9, 9]
-  modes: [16, 16, 16, 16]
-  # modes2: [9, 9, 9, 9]
+  layers: [16, 24, 24, 32, 32]
+  modes1: [15, 12, 9, 9]
+  modes2: [15, 12, 9, 9]
   fc_dim: 128
   act: gelu
   num_pad: 4
 
 train:
   batchsize: 20
+  v: 0.01
   epochs: 501
-  milestones: [150, 300, 450]
+  milestones: [100,200,300,400,500]
   base_lr: 0.001
   scheduler_gamma: 0.5
-  ic_loss: 10.0
+  gps_loss: 0.0001
+  ic_loss: 0.0
   f_loss: 1.0
-  xy_loss: 0.0
+  xy_loss: 5.0
   save_dir: 'burgers'
-  save_name: 'burgers-pretrain-gps.pt'
+  save_name: 'burgers-sym-25_new.pt'
   
 test:
-  batchsize: 1
+  batchsize: 20
+  batch_size: 1
+  n_sample: 20
+  offset: 90
   ckpt: 'checkpoints/burgers-FDM/burgers-pretrain-eqn.pt'
-
-log:
-  project: 'PINO-burgers-test'
-  group: 'gelu-test'

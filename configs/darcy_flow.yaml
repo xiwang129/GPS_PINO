@@ -1,9 +1,9 @@
 data:
   name: 'Darcy'
-  datapath: './data/darcy_train_421.mat'
+  datapath: './darcy_train1_421.mat'
   total_num: 1024
   offset: 0
-  n_sample: 1000
+  n_samples: 250
   nx: 421
   sub: 7
   pde_sub: 2
@@ -22,25 +22,20 @@ train:
   milestones: [100, 150, 200]
   base_lr: 0.001
   scheduler_gamma: 0.5
+  gps_loss: 0.01
   f_loss: 1.0
   xy_loss: 5.0
   save_dir: 'darcy-FDM'
-  save_name: 'darcy-pretrain-gps.pt'
+  save_name: 'darcy-250-gps_new.pt'
   save_step: 2_500
   eval_step: 2_500
   num_iter: 15_001
 
 test:
-  datapath: './data/darcy_test_421.mat'
+  datapath: './darcy_test_421.mat'
   total_num: 1024
   offset: 0
   n_sample: 500
   nx: 421
-  sub: 7
+  sub: 2
   batchsize: 1
-
-log:
-  logdir: Darcy-PINO-new
-  entity: hzzheng-pino
-  project: DarcyFlow
-  group: PINO-1000-new

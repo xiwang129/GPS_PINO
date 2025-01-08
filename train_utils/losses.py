@@ -15,18 +15,7 @@ def FDM_Darcy(u, a, D=1):
     ux = (u[:, 2:, 1:-1] - u[:, :-2, 1:-1]) / (2 * dx)
     uy = (u[:, 1:-1, 2:] - u[:, 1:-1, :-2]) / (2 * dy)
 
-    # ax = (a[:, 2:, 1:-1] - a[:, :-2, 1:-1]) / (2 * dx)
-    # ay = (a[:, 1:-1, 2:] - a[:, 1:-1, :-2]) / (2 * dy)
-    # uxx = (u[:, 2:, 1:-1] -2*u[:,1:-1,1:-1] +u[:, :-2, 1:-1]) / (dx**2)
-    # uyy = (u[:, 1:-1, 2:] -2*u[:,1:-1,1:-1] +u[:, 1:-1, :-2]) / (dy**2)
-
     a = a[:, 1:-1, 1:-1]
-    # u = u[:, 1:-1, 1:-1]
-    # Du = -(ax*ux + ay*uy + a*uxx + a*uyy)
-
-    # inner1 = torch.mean(a*(ux**2 + uy**2), dim=[1,2])
-    # inner2 = torch.mean(f*u, dim=[1,2])
-    # return 0.5*inner1 - inner2
 
     aux = a * ux
     auy = a * uy
@@ -34,7 +23,6 @@ def FDM_Darcy(u, a, D=1):
     auyy = (auy[:, 1:-1, 2:] - auy[:, 1:-1, :-2]) / (2 * dy)
     Du = - (auxx + auyy)
     return Du
-
 
 
 def GPS_FDM_Darcy(u, a, D=1, f=None):
@@ -82,29 +70,13 @@ def gps_darcy_loss(u, a):
     a = a.reshape(batchsize, size, size)
     lploss = LpLoss(size_average=True)
    
-    # index_x = torch.cat([torch.tensor(range(0, size)), (size - 1) * torch.ones(size), torch.tensor(range(size-1, 1, -1)),
-    #                      torch.zeros(size)], dim=0).long()
-    # index_y = torch.cat([(size - 1) * torch.ones(size), torch.tensor(range(size-1, 1, -1)), torch.zeros(size),
-    #                      torch.tensor(range(0, size))], dim=0).long()
-
-    # boundary_u = u[:, index_x, index_y]
-    # truth_u = torch.zeros(boundary_u.shape, device=u.device)
-    # loss_u = lploss.abs(boundary_u, truth_u)
-
     Du, Dx_Du, Dy_Du = GPS_FDM_Darcy(u, a)
     f = torch.ones(Du.shape, device=u.device)
     loss_f = lploss.rel(Du, f)
 
-    
     # loss_gps = lploss.rel(Dx_Du, torch.zeros(Dx_Du.shape, device=u.device)) + lploss.rel(Dy_Du, torch.zeros(Dy_Du.shape, device=u.device))
     loss_gps = lploss.abs(Dx_Du, torch.zeros(Dx_Du.shape, device=u.device)) + lploss.abs(Dy_Du, torch.zeros(Dy_Du.shape, device=u.device))
-  
-    # im = (Du-f)[0].detach().cpu().numpy()
-    # plt.imshow(im)
-    # plt.show()
 
-    # loss_f = FDM_Darcy(u, a)
-    # loss_f = torch.mean(loss_f)
     return loss_f,loss_gps
 
 def darcy_loss(u, a):
@@ -113,39 +85,11 @@ def darcy_loss(u, a):
     u = u.reshape(batchsize, size, size)
     a = a.reshape(batchsize, size, size)
     lploss = LpLoss(size_average=True)
-
-    # index_x = torch.cat([torch.tensor(range(0, size)), (size - 1) * torch.ones(size), torch.tensor(range(size-1, 1, -1)),
-    #                      torch.zeros(size)], dim=0).long()
-    # index_y = torch.cat([(size - 1) * torch.ones(size), torch.tensor(range(size-1, 1, -1)), torch.zeros(size),
-    #                      torch.tensor(range(0, size))], dim=0).long()
-
-    # boundary_u = u[:, index_x, index_y]
-    # truth_u = torch.zeros(boundary_u.shape, device=u.device)
-    # loss_u = lploss.abs(boundary_u, truth_u)
-
+ 
     Du = FDM_Darcy(u, a)
     f = torch.ones(Du.shape, device=u.device)
     loss_f = lploss.rel(Du, f)
-
-    # im = (Du-f)[0].detach().cpu().numpy()
-    # plt.imshow(im)
-    # plt.show()
-
-    # loss_f = FDM_Darcy(u, a)
-    # loss_f = torch.mean(loss_f)
     return loss_f
-
-
-
-def Autograd_Burgers(u, grid, v=1/100):
-    from torch.autograd import grad
-    gridt, gridx = grid
-
-    ut = grad(u.sum(), gridt, create_graph=True)[0]
-    ux = grad(u.sum(), gridx, create_graph=True)[0]
-    uxx = grad(ux.sum(), gridx, create_graph=True)[0]
-    Du = ut + ux*u - v*uxx
-    return Du, ux, uxx, ut
 
 
 class LpLoss(object):
@@ -253,9 +197,8 @@ def GPS_FDM_Burgers(u, v, D=1):
     
     
     Du = u_t + (u_x*u - v*u_xx)[:,1:-1,:] 
-    Dx_Du = u_xt + ((u_x)**2 + u*u_xx - v*u_xxx)[:,1:-1,:]          ### TODO: fix the boundaries (i.e. the shapes)
-    # Dt_Du = u_tt + ((u_x * u_t) + u*u_xt - v*u_xxt)[:,1:-1,:]       ### TODO: fix the boundaries (i.e. the shapes)
-    Dt_Du = u_tt + ((u_x[:, 2:, :] * u_t) + u[:, 2:, :]*u_xt - v*u_xxt)[:,1:-1,:]    
+    Dx_Du = u_xt + ((u_x)**2 + u*u_xx - v*u_xxx)[:,1:-1,:]            
+    Dt_Du = u_tt + ((u_x[:, 1:-1, :]  * u_t) + u[:, 1:-1, :]*u_xt - v*u_xxt)[:,1:-1,:]   
     return Du, Dx_Du, Dt_Du
 
 
@@ -275,10 +218,6 @@ def PINO_loss(u, u0, v):
     Du = FDM_Burgers(u, v)[:, :, :]
     f = torch.zeros(Du.shape, device=u.device)
     loss_f = F.mse_loss(Du, f)
-
-    # loss_bc0 = F.mse_loss(u[:, :, 0], u[:, :, -1])
-    # loss_bc1 = F.mse_loss((u[:, :, 1] - u[:, :, -1]) /
-    #                       (2/(nx)), (u[:, :, 0] - u[:, :, -2])/(2/(nx)))
     return loss_u, loss_f
 
 
@@ -308,10 +247,9 @@ def GPS_PINO_loss(u, u0, v):
     
     v1Du = -Dx_Du
     v2Du = -Dt_Du
-    v3Du = -(crop(3*Du+crop(x)*Dx_Du) + 2*crop(crop(t))*Dt_Du)              ### TODO: fix the boundaries (i.e. the shapes)
+    v3Du = -(crop(3*Du+crop(x)*Dx_Du) + 2*crop(crop(t))*Dt_Du)             
     v4Du = -crop(t)*Dx_Du
-    v5Du = -crop(crop(t))*(crop(3*Du+crop(x)*Dx_Du) + crop(crop(t))*Dt_Du)  ### TODO: fix the boundaries (i.e. the shapes)
-    
+    v5Du = -crop(crop(t))*(crop(3*Du+crop(x)*Dx_Du) + crop(crop(t))*Dt_Du)  
     
     loss_gps = (F.mse_loss(v1Du, torch.zeros(v1Du.shape, device=u.device)) +  
                 F.mse_loss(v2Du, torch.zeros(v2Du.shape, device=u.device)) + 
@@ -319,8 +257,35 @@ def GPS_PINO_loss(u, u0, v):
                 F.mse_loss(v4Du, torch.zeros(v4Du.shape, device=u.device)) + 
                 F.mse_loss(v5Du, torch.zeros(v5Du.shape, device=u.device)))
 
-    # loss_bc0 = F.mse_loss(u[:, :, 0], u[:, :, -1])
-    # loss_bc1 = F.mse_loss((u[:, :, 1] - u[:, :, -1]) /
-    #                       (2/(nx)), (u[:, :, 0] - u[:, :, -2])/(2/(nx)))
+    return loss_u, loss_f, loss_gps
+
+def Sym_PINO_loss(u, u0, v,device):
+    batchsize = u.size(0)
+    nt = u.size(1)
+    nx = u.size(2)
+
+    u = u.reshape(batchsize, nt, nx)
+    # lploss = LpLoss(size_average=True)
+
+    index_t = torch.zeros(nx,).long()
+    index_x = torch.tensor(range(nx)).long()
+    boundary_u = u[:, index_t, index_x]
+    loss_u = F.mse_loss(boundary_u, u0)
+
+    Du, Dx_Du, Dt_Du = GPS_FDM_Burgers(u, v)
+    f = torch.zeros(Du.shape, device=u.device)
+    loss_f = F.mse_loss(Du, f)
+
+    t = torch.linspace(0, 1, nt).reshape(1, nt, 1).repeat(batchsize, 1, nx).float().to(device)
+    x = torch.linspace(0, 1, nx).reshape(1, 1, nx).repeat(batchsize, nt, 1).float().to(device)
+    
+    def crop(x):
+        return x[:, 1:-1, :].to(device)
+    
+    v3Du = 2*crop(crop(t))* Dt_Du + crop(crop(x)*Dx_Du- 3*Du)   
+    v5Du = crop(crop(t))*(crop(crop(t))*Dt_Du + crop(crop(x)*Dx_Du - 3*Du))
+  
+    loss_gps = (F.mse_loss(v3Du, torch.zeros(v3Du.shape, device=u.device)) + F.mse_loss(v5Du, torch.zeros(v5Du.shape, device=u.device)))
+
     return loss_u, loss_f, loss_gps
   
