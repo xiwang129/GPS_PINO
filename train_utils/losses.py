@@ -282,10 +282,13 @@ def Sym_PINO_loss(u, u0, v,device):
     def crop(x):
         return x[:, 1:-1, :].to(device)
     
-    v3Du = 2*crop(crop(t))* Dt_Du + crop(crop(x)*Dx_Du- 3*Du)   
-    v5Du = crop(crop(t))*(crop(crop(t))*Dt_Du + crop(crop(x)*Dx_Du - 3*Du))
+    # v3Du = 2*crop(crop(t))* Dt_Du + crop(crop(x)*Dx_Du- 3*Du)   
+    # v5Du = crop(crop(t))*(crop(crop(t))*Dt_Du + crop(crop(x)*Dx_Du - 3*Du))
   
-    loss_gps = (F.mse_loss(v3Du, torch.zeros(v3Du.shape, device=u.device)) + F.mse_loss(v5Du, torch.zeros(v5Du.shape, device=u.device)))
+    # loss_gps = (F.mse_loss(v3Du, torch.zeros(v3Du.shape, device=u.device)) + F.mse_loss(v5Du, torch.zeros(v5Du.shape, device=u.device)))
+    
+    v5Du = crop(t) * Du
+    loss_gps = F.mse_loss(v5Du,torch.zeros(v5Du.shape, device=u.device))
 
     return loss_u, loss_f, loss_gps
   
