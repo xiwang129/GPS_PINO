@@ -1,6 +1,10 @@
 # Generalized Lie Symmetries in Physics-Informed Neural Operators
 This repository contains the official implementation of Generalized Lie Symmetries in Physics-Informed Neural Operators. This repository is build upon PINO [[link](https://github.com/neuraloperator/physics_informed  )]
 
+**Main Idea** 
+
+Recent research has demonstrated that incorporating Lie point symmetry information can significantly enhance the training efficiency of physics-informed neural operators PINOs through augmentation techniques. In this work, we propose a novel loss augmentation strategy that leverages evolutionary representatives of point symmetries, a specific class of generalized symmetries of the underlying PDE. These generalized symmetries provide a richer set of constraints than standard symmetries, leading to a more informative training signal. In comparision, the standard point symmetries oftentimes result in no training signal, limiting their effectiveness in many problems.
+
 ## Train Dary Flow
 Dataset: download official Darcy flow dataset from Li et al. 2021  [[link](https://drive.google.com/drive/folders/1UnbQh2WWc6knEHbLn-ZaXrKUZhp7pjt-)]
 
