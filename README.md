@@ -13,4 +13,8 @@ Dataset: generate $128 \times 100$ grid 1D dataset using ```train_burgers.py```
 ``` python train_burgers.py --config './configs/burgers.yaml'```
 
 ## Evaluation and Plotting 
-For evaluations, see ```train_utils/eval_2d.py```
+For detail implementation on evaluation metrics, see ```train_utils/eval_2d.py```
+
+To evaluate Darcy flow ```python train_darcy.py --config './configs/darcy_flow.yaml' --test```
+
+To evaluate Burgers equation ``` python train_burgers.py --config './configs/burgers.yaml' --mode test```
