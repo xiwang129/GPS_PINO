@@ -25,4 +25,4 @@ To evaluate Burgers equation ``` python train_burgers.py --config './configs/bur
 
 ## Point Symmetry Derivations
 
-To avoid extensive derivations for the symmetries and action on the residual, we implemented the relevant derivations in Mathematica using the MathLie library [[link](https://library.wolfram.com/infocenter/ID/2461/)]. The Mathematica notebook can be found in the ```mathlie_test_prolong.nb```.
+To avoid extensive derivations for the symmetries and action on the residual, we implemented the relevant derivations in Mathematica using the MathLie library [[link](https://library.wolfram.com/infocenter/ID/2461/)]. The Mathematica notebook can be found in ```mathlie_test_prolong.nb```
