@@ -22,3 +22,7 @@ For detail implementation on evaluation metrics, see ```train_utils/eval_2d.py``
 To evaluate Darcy flow ```python train_darcy.py --config './configs/darcy_flow.yaml' --test```
 
 To evaluate Burgers equation ``` python train_burgers.py --config './configs/burgers.yaml' --mode test```
+
+## Point Symmetry Derivations
+
+To avoid extensive derivations for the symmetries and action on the residual, we implemented the relevant derivations in Mathematica using the MathLie library [[link](https://library.wolfram.com/infocenter/ID/2461/)]. The Mathematica notebook can be found in the ```mathlie_test_prolong.nb```.
