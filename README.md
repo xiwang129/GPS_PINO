@@ -1,5 +1,5 @@
 # Generalized Lie Symmetries in Physics-Informed Neural Operators
-This repository contains the official implementation of Generalized Lie Symmetries in Physics-Informed Neural Operators. This repository is built on PINO [[link](https://github.com/neuraloperator/physics_informed  )]
+This repository contains the official implementation of [Generalized Lie Symmetries in Physics-Informed Neural Operators](https://arxiv.org/pdf/2502.00373) in *SCML Scientific Computing and Machine Learning* 2025. This repository is built on PINO [[link](https://github.com/neuraloperator/physics_informed  )]
 
 **Main Idea** 
 
